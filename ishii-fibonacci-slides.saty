@@ -1,0 +1,778 @@
+@require: class-slydifi/theme/arctic
+@require: bibyfi/bibyfi
+@require: bibyfi/bibyfi-IEEETran
+@require: azmath/azmath
+@require: matrix/matrix
+@require: colorbox/colorbox
+@import: mymath
+@import: references
+
+open MyMath
+open SlydifiOverlay
+open Colorbox
+
+let set-main-font name = fun ctx ->
+      ctx |> set-font Kana (name, 1., 0.)
+          |> set-font HanIdeographic (name, 1., 0.)
+          |> set-font HanIdeographic (name, 1., 0.)
+          |> set-font Latin (`system:Baskerville`, 1., 0.)
+
+let set-font-metrics fsize ctx =
+    ctx |> set-font-size fsize
+        |> set-paragraph-margin (fsize *' 0.75) (fsize *' 0.75)
+        |> set-min-gap-of-lines 0pt
+        |> set-leading (fsize *' 1.4)
+
+let-block ctx +center inl =
+  line-break true true
+    ctx
+  (inline-fil ++ read-inline ctx inl ++ inline-fil)
+
+let-inline ctx \LARGE inl = 
+  read-inline (ctx |> set-font-metrics 120pt ) inl
+
+let-inline ctx \Large inl = 
+  read-inline (ctx |> set-font-metrics 80pt ) inl
+
+let-math \pow from to = 
+  let m1 = math-sup ${} from in
+  ${\math-skip!(2pt)#m1\math-skip!(0pt -' 2pt)#to}
+
+let-math \deg = 
+  text-in-math MathOp (fun ctx -> read-inline ctx {deg})
+
+let-mutable theorem-number <- 0
+
+let-inline ctx \thmref key = 
+  match get-cross-reference key with
+    | Some(label) -> read-inline ctx (embed-string label)
+    | None -> read-inline ctx { (??) }
+
+let-inline ctx \eqref key = 
+  match get-cross-reference (`eq:` ^ key ^ `:num`) with
+    | Some(label) -> 
+      read-inline ctx (embed-string (`(` ^ label ^ `)`))
+    | None -> read-inline ctx { (??) }
+
+let-math \binmod = 
+  text-in-math MathBin (fun ctx -> read-inline ctx {mod})
+let-math \opmod = 
+  text-in-math MathOp (fun ctx -> read-inline ctx {mod})
+
+let make-theorem ctx header ?:title ?:tag ?:opts blk = 
+  let () = theorem-number <- !theorem-number + 1 in
+  let txt-header = header ^ arabic !theorem-number in
+  let () = match tag with
+            | None -> ()
+            | Some(tag) -> 
+              register-cross-reference tag txt-header
+  in
+  let str-title = embed-string txt-header in
+  let ib-title =
+        match title with
+        | None ->   {#str-title;}
+        | Some(title) -> {#str-title; (#title;)}
+  in
+  let user-opts = match opts with
+        | None -> []
+        | Some(uos) -> uos in
+  let opts = List.append user-opts
+        [ lefttitle 10pt; righttitle 10pt; toptitle 2.5pt; bottomtitle 2.5pt;
+        fonttitle [bold];
+        left 10pt; right 10pt; top 10pt;bottom 10pt;
+        ]
+  in
+  read-block ctx '<
+    +colorbox 
+      (opts)
+      ?:(ib-title)
+      <+p{#blk;}>
+  >
+
+let-block ctx +defn = make-theorem ctx `定義`
+let-block ctx +notation = make-theorem ctx `記法`
+let-block ctx +thm = make-theorem ctx `定理`
+let-block ctx +lem = make-theorem ctx `補題`
+let-block ctx +cor = make-theorem ctx `系`
+
+let bibyfi-theme = BiByFiIEEETran.theme (|
+    name-shrink = true;
+    et-al = true;
+    journal-abbr = [];
+  |)
+
+let-block ctx +pf body =
+  read-block ctx '<
+    +colorbox
+      []
+      ?:({証明})
+      <#body;>
+  >
+
+let slide-cfg = (|
+  SlydifiThemeArctic.default-config with
+      font-normal =
+        SlydifiScheme.apply-font-cfg
+          [ set-main-font `system:HiraMaruProN-W4`
+          ; set-font-metrics 20pt
+          ]
+    ; font-code = 
+        SlydifiScheme.apply-font-cfg
+          [ set-main-font `system:LigaHasklig-Regular`
+          ; set-font Latin (`system:LigaHasklig-Regular`, 1., 0.)
+          ]
+    ; font-bold =
+        SlydifiScheme.apply-font-cfg
+          [ set-main-font `system:HiraMaruProN-W4`
+          ]
+    ; font-slide-title = 
+      SlydifiScheme.apply-font-cfg
+          [ set-main-font `system:.HiraKakuInterface-W5`
+          ; set-font-metrics 36pt
+          ]
+    ; font-slide-author = 
+      SlydifiScheme.apply-font-cfg
+          [ set-main-font `system:.HiraKakuInterface-W4`
+          ; set-font-metrics 24pt
+          ]
+    ; font-slide-date = 
+      SlydifiScheme.apply-font-cfg
+          [ set-main-font `system:.HiraKakuInterface-W4`
+          ; set-font-metrics 20pt
+          ]
+    ; font-section-title = 
+        SlydifiScheme.apply-font-cfg
+          [ set-main-font `system:.HiraKakuInterface-W4`
+          ; set-font-metrics 32pt
+          ]
+    ; font-frame-title = 
+        SlydifiScheme.apply-font-cfg
+          [ set-main-font `system:HiraMaruProN-W4`
+          ; set-font-metrics 28pt
+          ]
+    ; font-pagenum =
+        SlydifiScheme.apply-font-cfg
+          [ set-main-font `system:HiraMaruProN-W4`
+          ]
+    ; font-footnote =
+        SlydifiScheme.apply-font-cfg
+          [ set-main-font `system:HiraMaruProN-W4`
+          ]
+    ; font-quote =
+        SlydifiScheme.apply-font-cfg
+          [ set-main-font `system:HiraMaruProN-W4`
+          ]
+|)
+let placeholder height (origX, origY) =
+  [fill (slide-cfg#color-bg)
+    (Gr.rectangle (origX, origY) (origX, origY +' height))
+  ]
+
+let-inline ctx \phantom it =
+  let ib = read-inline ctx it in
+  let (w, h, d) = get-natural-metrics ib in
+  inline-graphics w h d (fun _ -> [])
+
+let glue ctx ht =
+  let thresh = length-max 0pt ht in
+  let cleared = ctx |> set-paragraph-margin 0pt 0pt in
+  line-break true false cleared (inline-graphics 0pt thresh 0pt (placeholder thresh))
+
+let-block ctx +vert-center blk = 
+  let content = read-block (ctx |> set-paragraph-margin 0pt 12pt)  blk in
+  let ht = (SlydifiThemeArctic.layout#text-height -' get-natural-length content) *' .4 
+  in glue ctx ht +++ content
+
+in
+document '<
+  +set-config(slide-cfg);
+  +make-title(|
+    title = {|計算代数を駆使して（一般化）|フィボナッチ数列の一般項を求める|};
+    author = {|Hiromi ISHII|};
+    date = {|2022/03/06|Tsukuba Compter Mathematics Seminar 2022|};
+  |);
+
+  +section{|導入|}<
+    +frame{話題：一般化Fibonacci数列を純計算代数的に解く}<
+      +listing{
+        * Fibonacci数列：${f_0 = 0, f_1 = 1, f_{n+2} = f_n + f_{n+1}}
+          ** ${0, 1, 1, 2, 3, 5, 8, \ldots}
+          ** \emph{線型隣接三項間漸化式}で定まる数列の代表的な例
+      }
+
+      +defn{
+        \emph{線型隣接${ \p{N+1} }-項間漸化式}で定まる数列${\p{a_n}_{n \in \mathbb{N}}}とは，
+        定数${c}，係数${\set{c_i}_{i \lt N}}，
+        初期値 ${\set{a_i}_{i \lt N}}について次で定まるもの：
+        \eqn(${a_{k + N} = c + \sum_{i \lt N} c_i a_{k + i}});
+      }
+    >
+
+    +frame{線型隣接多項間漸化式の第${n}項の求め方}<
+      +listing{
+        * 愚直に${n}回繰り返して解く
+        * ありきたりな方法：行列を使って求める
+        * 既知の\emph{一般項}を使う
+          ** 一般項：一般の${a_n}を${n}についての閉じた式で表したもの
+          ** Fibonacci 数列の一般項は以下で与えられることが知られている：
+
+            \eqn(${
+              F_n = \frac{1}{\sqrt{5}}
+                \pb{
+                  \p{\frac{1+ \sqrt{5}}{2}}^n
+                  - \p{\frac{1 - \sqrt{5}}{2}}^n
+                }
+            });
+        * 一般項はどう求める？
+      }
+    >
+
+    +frame{行列の方法：ありきたりな方法から}<
+      +listing{
+        * ${\p{N+1}}-項間漸化式は以下のように行列を使って表せる：
+
+        \eqn(${
+          \sqbracket{\matrix-body![
+            [${a_{k+N}}];
+            [${a_{k+\p{N-1}}}];
+            [${\vdots}];
+            [${a_{k}}];
+          ]} =
+          \sqbracket{\matrix-body![
+            [${c_{N-1}}; ${c_{N-2}}; ${\cdots}; ${c_0}; ${c}];
+            [${1}; ${0}; ${\cdots}; ${0}; ${0}];
+            [${0}; ${1}; ${\cdots}; ${0}; ${0}];
+            [${\vdots}; ${\vdots}; ${\ddots}; ${\vdots}; ${\vdots}];
+            [${0}; ${0}; ${\cdots}; ${1}; ${0} ];
+          ]}
+          \sqbracket{\matrix-body![
+            [${a_{k+\p{N-1}}}];
+            [${a_{k+\p{N-2}}}];
+            [${\vdots}];
+            [${a_k}];
+            [${1}];
+          ]}
+        });
+        * 行列を${A}と置けば，${a_n}を求めるには${A^n}を求めればよい
+          ** ${A}の固有値・固有ベクトルを求める問題に帰着
+      }
+    >
+
+    +frame-nofooter{}<
+      +vert-center<
+        +center{\LARGE{完}}
+      >
+    >
+    +frame-nofooter{}<
+      +vert-center<
+        +center{\LARGE{完ではない}}
+      >
+    >
+    +frame{一般項が求めたいのよ}<
+      +listing{
+        * 記号的に固有値は求まる（適切な代数拡大体で）
+        * そこから劣決定な連立方程式を解けば固有ベクトルがわかる（記号的にできるの？）
+        * ${Q^{-1} A^n Q} が対角になるので，これを使って式を解いて${1}-行目をみれば一般項はわかる
+          ** \strike{線型代数に甘えるな}
+        * もっと面白い解き方はないのか？
+          ** あります（\weak{計算量は無視して}）
+      }
+    >
+    +frame{母関数法によるFibonacci数列の一般項導出 (1)}<
+      +listing{
+        * 以下の冪級数${\app{F}{X}}を数列${\set{a_n}_{n \lt \infty}}の\emph{母関数}と呼ぶ：
+
+          \eqn(${\app{F}{X} = a_0 + a_1 X + a_2 X^2 + \cdots + a_n X^n + \cdots });
+        * 単に数列の横に${X^n}たちを並べただけでは？
+        * ところが冪級数を「それっぽく」扱うといつの間にか一般項がわかる（！）
+        * 方針：各項の関係を使い，${\app{F}{X}}を閉じた有理式にする．
+          \alignat?:(AZMathEquation.notag)(2)(${
+            | X^2 \app{F}{X} |=      |   f_0 X^2  + f_1 X^3 + \cdots |
+            | X   \app{F}{X} |= f_0 X |+ f_1 X^2  + f_2 X^3 + \cdots |
+            | \therefore\ \p{X^2 + X}\app{F}{X} 
+            |= f_0 X |+ \underbrace{f_2 X^2 + f_3 X^3 + \cdots}_{= \app{F}{X} - \p{f_0 + f_1 X}} |
+            |});
+      }
+    >
+
+    +frame{母関数法によるFibonacci数列の一般項導出 (2)}<
+      +listing{
+        * 変形の続き：右辺を整理すると，
+          \gather(${
+          | \p{X^2 + X}\app{F}{X} 
+              = \app{F}{X} - f_0 - \p{f_1 - f_0} X
+              \label!(`和の状態`)
+          |});
+          ${\app{F}{X}}を移項して，
+          \alignat?:(AZMathEquation.notag)(2)(${
+          | \p{X^2 + X - 1}\app{F}{X} |= - \p{f_0 + \p{f_1 - f_0} X} | \p{\app{F}{X}\text!{を移項}}|
+          | |= -X | \p{f_0 = 0, f_1 = 1 \text!{より}} |
+          | \therefore\ \app{F}{X} |= - \frac{X}{X^2 + X - 1}
+          | \p{X^2 + X - 1 \text!{で両辺を割る}} |
+          |});
+      }
+    >
+
+    +frame-nofooter{母関数法によるFibonacci数列の一般項導出 (3)}<
+      +p{
+        ここで多項式${X^2+X-1}の根を${\gamma, \bar{\gamma}}とおいて部分分数分解をして，
+        \eqn(
+          ${ \app{F}{X} 
+          = -\frac{X}{\p{\gamma - X}\p{\bar{\gamma} - X}}
+          = \frac{X}{\gamma - \bar{\gamma}} \pb{\frac{1}{\gamma - X} - \frac{1}{\bar{\gamma} - X}}}
+        );
+        等比級数の公式より，
+          \eqn(${\frac{1}{a - X} = \frac{1}{a} \cdot \frac{1}{\ 1 - \frac{X}{a}\ } 
+          = \frac{1}{a} \sum_{n \lt \infty} \frac{X^n}{a^n}
+          = \sum_{n \lt \infty} \frac{X^n}{a^{n+1}}
+          });
+        だから，
+        \align[
+          ${|\app{F}{X} 
+          |= \frac{1}{\gamma - \bar{\gamma}} 
+              \sum_{0 \lt n \lt \infty} \p{\frac{1}{\gamma^n} - \frac{1}{\bar{\gamma}^n}} X^n 
+          |};
+        ];
+      }
+    >
+
+    +frame{母関数法によるFibonacci数列の一般項導出 (4)}<
+      +p{${X^2 + X - 1}の二つの根は${\frac{-1\pm \sqrt{5}}{2}}であることに気を付ければ，
+      \align[
+          ${| f_n 
+              |= \frac{1}{\gamma - \bar{\gamma}}
+                  \pb{\frac{1}{\gamma^n} - \frac{1}{\bar{\gamma}^n}}
+          |};
+          ${| |= \frac{1}{\sqrt{5}} \pb{
+            \p{\frac{1 + \sqrt{5}}{2}}^n -
+            \p{\frac{1 - \sqrt{5}}{2}}^n
+          }
+          |};
+        ];
+      となり，これは先に掲げた式に一致する．
+      }
+      +listing{
+        * なんでこれでいいのか？
+      }
+    >
+  >
+
+  +section{|形式的冪級数環による正当化|}<
+    +frame{母関数法の正当化}<
+      +listing{
+        * 『数学ガール』\cite[`Yuki:2007`];等に（正当化なしで）紹介されている
+          ** 十年以上前に読んで「カッコイイ！」となった
+        * \emph{形式的冪級数環${R\SQBracket{X}}}の環構造を使えば普通に正当化できる
+      }
+      +defn ?:({形式的冪級数環}){
+        単位的可換環${R}-係数の\emph{一変数形式的冪級数環}${R\SQBracket{X}}とは${R}の無限列の集合${\pow{\mathbb{N}}{R}}に次の演算を入れたもの：\phantom{\cite([`Basold:2019`]);}
+        \align[
+          ${|\app{\p{f+g}}{n} |= \app{f}{n} + \app{g}{n} 
+          | \app{\p{f \cdot g}}{n} |= \sum_{0 \leq k \leq n} \app{f}{k} \app{g}{n - k}|};
+          ${|\app{0}{n} |= 0_R | \app{1}{0} |= 1_R, \app{1}{n+1} = 0_R |}
+        ];
+      }
+    >
+
+    +frame{形式的冪級数環は環}<
+      +thm{形式的冪級数は前項の定義で単位的可換環を成す．}
+      +notation{
+        形式的冪級数${F \in R\SQBracket{X}}を以下の形で表す：
+        \align[
+          ${|\app{F}{X} 
+            | = \app{F}{0} + \app{F}{1} X + \app{F}{2}  X^2 + \cdots + \app{F}{n} X^n + \cdots
+          |};
+          ${|
+            |= F_0 + F_1 X + F_2 X^2 + \cdots + F_n X^n + \cdots
+          |};
+        ];
+        ${F_0} を ${F} の \emph{定数項}と呼ぶ．${F_i = 0}なる項は省略する．
+        また，係数${a \in R}と，定数項が${F_0 = a}で残りはゼロ${F_{n+1} = 0}の冪級数を同一視する．
+      }
+    >
+
+  +frame{記号の約束}<
+    +notation{
+      以下，特に断りのない限り小文字の${\app{f}{X}, \app{g}{X}, \ldots}は多項式環${R\pB{X}}の元を，大文字の${\app{F}{X}, \app{G}{X}, \ldots}は形式的冪級数環${R \SQBracket{X}}の元をそれぞれ動くとする．
+      いずれの場合も，表記のスペースの都合上${\p{X}}は省略する場合がある．
+
+      また，冪級数または多項式 ${\app{F}{X}}に対し，紛らわしさを回避するため，その${X^k}の係数を${\pb{F}_k}と書くことがある．
+    }
+  >
+
+    +frame{母関数の定数倍・重ね合わせの正当化}<
+      +lem?:({冪によるシフト})?:(`lem:冪シフト`){
+        任意の${k \geq 0}に対して，
+        \eqn(${
+          X^k \app{F}{X} = F_0 X^k + F_1 X^{k + 1} + \cdots + F_n X^{k + n} + \cdots
+        });
+      }
+      +listing{
+        * 以上でFibonacci母関数法の \eqref(`和の状態`);までは正当化できる．
+          \alignat?:(AZMathEquation.notag)(1)(${
+            |\p{X^2 + X}\app{F}{X} 
+            |= \app{F}{X} - f_0 - \p{f_1 - f_0} X
+            |\therefore 
+              \p{X^2 + X - 1} \app{F}{X}
+              |= - f_0 - \p{f_1 - f_0} X
+            |});
+        * ${X^2 + X - 1}で割っても大丈夫だろうか？
+      }
+    >
+
+    +frame{形式的冪級数環の可逆元}<
+      +thm ?:({形式的冪級数環の可逆元})?:(`thm:unit-series`){
+        ${F \in R\SQBracket{X}}が可逆である事と，定数項${F_0}が${R}で可逆であることは同値であり，その逆元は以下で与えられる：
+        \gather
+          (${|
+            \pb{F^{-1}}_0 = \frac{1}{F_0}
+          ,\ \ \ 
+          \pb{F^{-1}}_{n + 1} =
+              -\frac{1}{F_0}
+              \sum_{0 \leq i \leq n} F_{n + 1 - i} \pb{F^{-1}}_{i}.
+          \label!(`逆元公式`)
+          |})
+        ;
+      }
+      +listing{
+        * ${\pb{F^{-1}}_{\p{-}}}についての再帰的な定義．証明は帰納法．
+        * これで ${\app{F}{X} = -\frac{X}{X^2 + X - 1}} までは正当化可能！
+      }
+    >
+
+    +frame{連分数展開は？}<
+      +listing{
+        * 通分などの操作は，分母たちが可逆なら任意の可換環で成立
+        * 母関数による Fibonacci 数列の解法は以下まで正当化出来る：
+        \eqn(${
+          \app{F}{X} 
+          = \frac{X}{\gamma - \bar{\gamma}} \pb{\frac{1}{\gamma - X} - \frac{1}{\bar{\gamma} - X}}
+        });
+        * また，定数倍も明らかに分配則を満たす：
+      }
+      +thm?:({スカラー倍}){${F \in R\SQBracket{X}, a \in R}に対し，${a\app{F}{X} = aF_0 + aF_1 X + \cdots}．}
+      +listing{
+        * あとは「等比級数の公式」が成り立てば良い．
+      }
+    >
+
+    +frame{等比級数公式}<
+      +p{
+        「等比級数の公式」は${R\SQBracket{X}}でも確かに成り立つ！
+      }
+      +cor ?:({等比級数の公式}) ?:(`cor:等比級数`){
+        ${a \in R}が単元の時，
+        \gather(
+          ${
+          | \frac{1}{X - a}
+            = -\sum_{k \lt \infty} \p{\frac{1}{a}}^{k + 1} X^k
+            \label!(`等比級数`)
+          |}
+        );
+      }
+      +listing{
+        * \eqref(`逆元公式`);に係数を代入すれば上の式が得られる．
+        * これで${\p{X-\gamma}^{-1}, \p{X - \bar{\gamma}}^{-1}}の第${n}項が求まる
+        * あとは分配則と${R\SQBracket{X}}の加法の定義から一般項が出る．
+      }
+    >
+
+    +frame{Fibonacci数列の母関数解法まとめ}<
+      +listing{
+        * Fibonacci数列${\pb{f_i}_{i \lt \infty}}の一般項は以下の手順で求まった
+        \enumerate{
+          * 母関数${\app{F}{X} = f_0 + f_1 X + \cdots + f_n X^n + \cdots}を考える
+          * 漸化式を使い，${\app{F}{X} = -X/\p{X^2+X-1}}と表す．
+            \listing{
+              * これは形式的冪級数環${R\SQBracket{X}}が実際に可換環であり，
+              * 分母の多項式${X^2 + X - 1}が${R\SQBracket{X}}で可逆であることから可能
+            }
+          * 分母を因数分解し，一次式に部分分数分解する．
+          * 等比級数公式を線型に重ね合わせて，第${n}項の式を導く．
+        }
+      }
+    >
+  >
+
+  +section{|多項への一般化|}<
+    +frame{${\p{N+1}}-項間漸化式への一般化}<
+      +listing{
+        * 母関数法を${\p{N+1}}-項間に一般化，\emph{計算機に解かせたい}
+          ** 可能な限り\emph{一般的な係数環}で解けるようにしたい
+          *** \weak{ネタバレ：因数分解が計算可能な整域ならOK}
+        * 必要なもの：
+          \enumerate{
+            * 一般の場合でも使える母関数${\app{F}{X}}の\emph{有理式表現}（\weak{やるだけ}）
+            * 有理式の\emph{部分分数分解}（\weak{既知}）
+                ** 更に分母の\emph{一次式への因数分解}が必要（\weak{ちょっと工夫が必要}）
+            * 無限和で表し重ね合せ：等比級数の公式の\emph{冪乗版}が必要（\weak{簡単}）
+          }
+      }
+    >
+
+    +frame{有理式表現}<
+      +listing{
+        * ${c_{N-1} X^1, c_{N-2} X^2, \ldots, c_0 X^{N}}を${\app{F}{X}}に掛け足し合わせる
+        * 更に，定数項の分の帳尻を${c/\p{1-X}}で合わせて整理して：
+
+          \gather?:(AZMathEquation.notag)(${
+            | \pb{\sum_{k \lt N} c_k X^{N - k} - 1}\app{F}{X}
+                = \app{g}{X} - \sum_{k \lt N} a_k X^k + \frac{c X^N}{X - 1},\label!(`母関数一般式`)
+            | \text!{where}\ \app{g}{X} 
+                = \sum_{i \lt k \lt N}
+              c_{N - k + i + 1} a_i X^k.
+          |});
+
+        * 左辺の${\app{F}{X}}の係数の定数項は\emph{可逆}
+        * ${\app{F}{X}}以外の\emph{項は全て有限次}なので，${\app{F}{X}}は\emph{有理式で表せる}
+      }
+    >
+
+    +frame{有理式の部分分数分解}<
+      +defn{
+        整域${R}係数の互いに素で定数でない多項式${\pb{g_i}_{i \lt k}}と正の整数${\pb{e_i}_{i \lt k}}により，多項式${g}が${g = g_0^{e_0} \cdot \cdots \cdot g_{k-1}^{e_{k-1}}}と表されているとする．
+        この時，${\deg f \lt \deg g}なる多項式${f}について
+        \eqn(${
+          \frac{\app{f}{X}}{\app{g}{X}}
+          = 
+          \sum_{i \lt k}
+          \pb{\frac{f_{i,1}}{g_i} + \cdots + \frac{f_{i,e_i}}{g_i^{e_i}}}, 
+          \ 
+          \ 
+          \p{\deg f_{i,j} \lt \deg g_i}
+        });
+        を有理式${\app{f}{X}/\app{g}{X}}の${\pb{g_i}_i}に関する\emph{部分分数分解}と呼ぶ．
+      }
+    >
+
+    +frame-nofooter{部分分数分解の存在と一意性：第一ステップ}<
+      +listing{
+        * 係数が体の時を考える（整域なら分数体や擬剰余を考える）
+      }
+      +lem{
+        ${f, g, g_i, e_i}について次を満たす${\pb{\hat{f}_i}_i}が一意に存在する：
+        \eqn(${
+          \frac{f}{g} 
+          = \frac{\hat{f}_0}{g_0^{e_0}} 
+          + \frac{\hat{f}_1}{g_1^{e_1}} + \cdots
+          + \frac{\hat{f}_{k-1}}{g_{k-1}^{e_{k-1}}}\ \ 
+          \p{\deg \hat{f}_i \lt e_i \deg g_i}
+        });
+      }
+      +pf<
+        +p{
+          互いに素なので${g_j, j \neq i}は${\opmod g_i^{e_i}}で可逆．
+          よってこの時
+          
+          \eqn(${\hat{f}_i = g_0^{-e_0} \cdots g_{i-1}^{-e_{i-1}}g_{i+1}^{-e_{i+1}}\cdots g_{k-1}^{-e_{k-1}}f \binmod g_i^{-e_i}});
+          
+          が求めるもの．
+        }
+      >
+    >
+
+    +frame{部分分数分解の存在と一意性：第二ステップ}<
+      +listing{
+        * あとは先程の結果を${g_i}-進展開してやればよい．
+          ** 整数を${p}-進展開するように，${\hat{f}_i}を繰り返し${g_i}で剰余をとれば，
+          \eqn(${
+            \hat{f}_i = f_{i,1} g_i^{e_i-1} + \cdots + f_{i,e_i-1} g_i + f_{i,e_i}\ \p{\deg f_{i,e_i} \lt \deg g_i}
+          });
+          と表示でき，${g_i^{e_i}}で割れば所要のもの．
+          ** Modern Computer Algebra \cite[`Gathen:2013`]; などでも紹介されている方法
+        * 部分分数展開は${\pb{g_i}_i}が与えられて初めて定まるので，母関数の分解には，分母の因数分解があればよい
+      }
+    >
+
+    +frame{因数分解をどうするか？}<
+      +listing{
+        * 有限体や有理数体，整数環上の因数分解の方法は既知（ここではやらない）
+          ** Modern Computer Algebra\cite[`Gathen:2013`];や『計算機代数の基礎理論』\cite[`Nagasaka-etal:2019`];参照
+        * 武器が等比級数公式だけなので一次式の積しか扱えない！
+          ** 代数閉包を取ってもよいが，そこでの因数分解が必要
+        * 今回の方針
+          \enumerate{
+            * まずは係数環やその分数体上で因数分解
+            * 高次因子は剰余環を繰り返し取り，分解体上で扱う
+          }
+      }
+    >
+
+    +frame{分解体での計算}<
+      +listing{
+        * ${\app{f}{X}}を平方因子を含まないモニックな既約多項式とする
+        * ${R\pB{X}/\app{f}{X}}は${\app{f}{X}}の根を少なくとも一つ含む
+          ** ${\deg f = 1}なら元の${R}と同型
+          ** ${\deg f = 2}なら，${R\pB{X}/f}は${\app{f}{X}}の二つの根を全て含む
+            *** 一つは${\xi = \pB{X}_{f}}，もう一つは因数定理より${f/\p{X - \xi}}が知ってる（二次方程式の解と係数の関係）
+        * ${\deg f \gt 2}の場合${f/\p{X - \xi}}に対して以下同文
+          ** \weak{同型にはなるが，三次以上の場合でも複数根が付与される場合はないか？}
+        * ${f}にしか興味ないので拡大体での一般的な因数分解は不要
+      }
+    >
+
+    +frame{等比級数公式の冪乗版 (1)}<
+      +listing{
+        * 母関数${\app{F}{X}}をこんな感じで一次式の冪乗和に分解できた：
+        \align[
+          ${|
+            \app{F}{X}
+            |= \app{g}{X} + \frac{\app{h}{X}}{\p{X - \xi_0}^{e_0} \cdots \p{X - \xi_n}^{e_n}}
+              ||\text!{（分母因数分解）}
+          |};
+          ${|
+            |= \app{g}{X}
+              + \sum_{k \leq n}
+                \sum_{1 \leq i \leq e_k}
+                \frac{d_{k,i}}{\p{X - \xi_k}^{e_i}}
+            ||\text!{（部分分数分解）}
+          |};
+        ];
+          但し，${\app{g}{X} \in R\pB{X}, d_{k,i} \in R}．
+        * Fibonacciの場合と違って${\p{X-\xi}^{-e_i}}の項が出てきうる．
+      }
+    >
+
+    +frame{等比級数公式の冪乗版}<
+      +listing{
+        * （面倒だが）簡単な帰納法で次が示せる：
+      }
+      +lem?:({等比級数公式，冪乗版})?:(`冪公式`){
+        ${a \in R}を可逆元とすると，${R\SQBracket{X}}で次が成立：
+        \gather[${\frac{1}{\p{X - a}^{k+1}}
+            = \p{-\frac{1}{a}}^{k+1}
+              \sum_{n \lt \infty} 
+                \p{n + 1}^k \p{\frac{1}{a}}^n X^n
+            \label!(`冪公式`)}];
+      }
+      +listing{
+        * これで最後のピースが揃った！
+      }
+    >
+
+    +frame{例：${\mathbb{F}_5}上の定数項つきFibonacci (1)}<
+      +p{
+        次の定数項つきのFibonacci数列を有限体${\mathbb{F}_5}上で解いてみる：
+        \eqn(${a_0 = 0,\ \  a_1 = 1,\ \ a_{n + 2} = a_n + a_{n+1} + 2});
+      }
+      +listing{
+        * まず母関数の公式\eqref(`母関数一般式`);に各値を代入して整理すると，
+          \eqn(${
+            \app{F}{X} = \frac{X^2 + X}{X^3 - 2X + 1}
+          });
+        * 分母に有限体上での因数分解を施して，
+          \eqn(${
+            \app{F}{X} = \frac{X^2 + X}{\p{X - 1}\p{X - 2}^2}
+          });
+      }
+    >
+
+    +frame-nofooter{例：${\mathbb{F}_5}上の定数項つきFibonacci (2)}<
+      +listing{
+        * 部分分数分解をすると：
+          \eqn(${
+            \app{F}{X} =
+            \frac{2}{X - 1} + \frac{4}{X - 2} + \frac{1}{\p{X - 2}^2}
+          });
+        * これに式\eqref(`冪公式`);を適用して
+        \align[
+          ${| \app{F}{X} 
+            | =
+              \sum_{n \lt \infty} -2 X^n
+              + \sum_{n \lt \infty} -\frac{4}{2^{n+1}} X^n
+              + \sum_{n \lt \infty} \frac{n + 1}{2^{n+2}} X^n
+          |};
+          ${| 
+            | =
+              \sum_{n \lt \infty} 
+                \pb{3 + 3^{n+1} + 4 \p{n + 1} 3^n}  X^n
+          |}
+          ];
+        よって一般項は ${a_n = 3 + 3^{n+1} + 4 \p{n + 1} 3^n}．
+      }
+    >
+
+    +frame{${\mathbb{Q}}上のトリボナッチ数列の一般項 (1)}<
+      +listing{
+        * 高次の分解体が必要で${\p{N+1}}-項が解ける例として以下で定まるトリボナッチ数列を考える：
+          \eqn(${t_0 = 0,\ t_1 = 1,\ t_2 = 1,\ t_{k + 3} = t_k + t_{k+1} + t_{k+2}});
+        * 計算機によれば母関数は
+          \eqn(${\app{T}{X} = -\frac{X}{X^3 + X^2 + X - 1}});
+        * 大人しめだが，これの一般項はものすごいことになる
+      }
+    >
+
+    +frame{${\mathbb{Q}}上のトリボナッチ数列の一般項 (1)}<
+      +p{
+        ものすごい一般項が出る
+      }
+      +alignat(1)
+        (${| t_n
+            |= \p{\frac{\xi}{11}^2 + \frac{7}{22}\xi + \frac{3}{22}}  \p{\xi^2 + \xi + 1} ^ n 
+        |
+            |+ \p{-\frac{2}{11}\xi + \frac{5}{22}\zeta -\frac{\xi^2}{11} + \frac{1}{22}} \p{-\xi\zeta + -\xi^2 - \xi} ^ n
+        |
+          |+ \p{-\frac{3}{22}\xi - \frac{5}{22}\zeta - \frac{2}{11}} \p{\xi \zeta} ^ n
+        |});
+      +p{ただし
+        ${\xi^3 + \xi^2 + \xi - 1 = 0,\ 
+          \zeta^2 + \p{\xi + 1}\zeta + \p{\xi^2 + \xi + 1} = 0
+        }．
+      }
+    >
+
+    +frame-nofooter{変な数列 over ${\mathbb{F}_{17}}}<
+      +listing{
+        * ${\mathbb{F}_{17}}上で${a_0 = 0,\ a_1 = 0,\ a_2 = 0,\ a_3 = 1}として
+          \gather?:(AZMathEquation.notag)(${
+            | a_{n+4} = 4 a_n + 3 a_{n+1} + 2 a_{n+2} + a_{n+3} + 1
+            | \rightarrow 0,0,0,1,2,5,13,0,16,8,8,5,8,7,3,\ldots
+            |});
+        * 一般項は
+          \alignat(1)(${
+            | a_n 
+              |= 13 \cdot 6 ^ n + 15 
+              + \p{3 \xi^2 + 2 \xi + 15} \p{5 \xi^2 + 6 \xi + 12} ^ n 
+            | |+ \p{7 \xi + 12 \zeta + 14 \xi^2 + 1} \p{12 \xi \zeta + 12 \xi^2 + 11 \xi} ^ n 
+            | |+ \p{8 \xi + 5 \zeta + 7} \p{5 \xi \zeta} ^ n
+            |});
+          但し${\xi^3 + 8\xi^2 + 16\xi + 10 = 0}, ${\zeta^2 + \p{\xi + 8}\zeta + \p{\xi^2 + 8 \xi + 16} = 0}．
+      }
+    >
+
+    +namedframe(`まとめ`){\ghost(only 1){まとめ}\ghost(only 2){Any Questions?}}<
+      +listing{
+        * 母関数の有理式表現を用い，因数分解が計算可能な整域上で一般化Fibonacci数列の一般項を計算機に求めさせた．
+          ** 実装\cite[`Ishii:2022gh`];と冪級数の性質の形式的証明\cite[`Ishii:2022agda`];は GitHub にあり
+        * 形式的冪級数環${R\SQBracket{X}}の代数構造を使うと完全に正当化可能
+        * 計算の過程では計算代数の色々な要素が顔を出す
+          \enumerate{
+            * 多項式の因数分解（整数環・有理数体・有限体上）
+            * 剰余環での計算（多項式剰余）\weak{Gröbnerまでは不要}
+            * 部分分数分解
+          }
+      }
+    >
+
+    +frame-nofooter{参考文献}<
+      +font-style[font-size 18pt]<
+              +makebibliography 
+        ?:(|sort-references=true; 
+            citestyle=CiteAsNumber;
+            name-shrink=true;
+          |)
+        (bibyfi-theme)(bibs);
+      >
+    >
+
+    +frame-nofooter{}<
+      +vert-center<
+        +center{\Large{御清聴}}
+        +center{\Large{ありがとう}}
+        +center{\Large{ございました}}
+      >
+    >
+
+    +againframe(`まとめ`);
+  >
+>

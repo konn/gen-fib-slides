@@ -1,0 +1,78 @@
+@require: math
+@require: azmath/azmath
+open Math
+open AZMathParens
+
+module MyMath : sig
+  direct \SQBracket : [length?; math;] math-cmd
+  direct \lt : [] math-cmd
+  direct \gt : [] math-cmd
+  val gr-double-sqbracket : length -> bool -> graphicf-paren
+  val double-sqbracket-l : paren
+  val double-sqbracket-l : paren
+end = struct
+  let minus l = 0pt -' l
+  let reflect-x = linear-transform-path (0.0 -. 1.0) 0.0 0.0 1.0
+
+  let pads-double-sqbracket is-open fsize =
+    let (pad-inner, pad-outer) = (fsize *' 0.02, fsize *' 0.12) in
+    if is-open
+    then (pad-outer, pad-inner, 0pt)
+    else (pad-inner, pad-outer, 0pt)
+
+  let gr-double-sqbracket thk is-open vlen fsize color =
+      % 基準となる横の位置 (h) 及び 縦の位置 (v) の座標．
+      let hmin = minus fsize *' 0.12 in
+      let h0 = 0pt in
+      let ha = vlen *' 0.14 +' fsize *' 0.2 in
+      let hmax = ha +' fsize *' 0.02 in
+      let va = vlen in
+
+      % 結ぶことになる点の座標．
+      let (x0, y0) = (ha, va) in
+      let (x01, y01) = (ha *' 0.4, va) in
+      let (x1, y1) = (0pt, va) in
+      let (x2, y2) = (0pt, minus va) in
+      let (x23, y23) = (ha *' 0.4, minus va) in
+      let (x3, y3) = (ha, minus va) in
+
+      let path-outer =
+        start-path (x0, y0)
+          |> line-to (x1, y1)
+          |> line-to (x2, y2)
+          |> line-to (x3, y3)
+          |> terminate-path
+      in
+      let path-vert = start-path (x01, y01) |> line-to (x23, y23) |> terminate-path in
+      let path = unite-path path-outer path-vert in
+      let path = if is-open then path else reflect-x path in
+      let xmin = if is-open then hmin else minus hmax in
+      let xmax = if is-open then hmax else minus hmin in
+      (
+        [stroke thk color path],
+        (xmin, minus vlen), (xmax, vlen),
+        (fun _ -> 0pt)
+      )
+
+
+  let double-sqbracket-l =  
+        paren-scheme 
+          (gr-double-sqbracket 0.5pt true) 
+          half-height-default
+  let double-sqbracket-r = 
+      paren-scheme 
+        (gr-double-sqbracket 0.5pt false) 
+        half-height-default
+
+  let-math \SQBracket ?:ht m =
+    let half-height = match ht with
+    | Some(ht) -> half-height-fixed ht 
+    | None -> half-height-default
+    in math-paren
+        (paren-scheme (gr-double-sqbracket 0.5pt true) half-height)
+        (paren-scheme (gr-double-sqbracket 0.5pt false) half-height)
+        m
+  
+  let-math \lt = ${<}
+  let-math \gt = ${>}
+end

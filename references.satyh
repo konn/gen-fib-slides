@@ -1,0 +1,78 @@
+@require: bibyfi/bibyfi
+@require: class-slydifi/theme/arctic
+@require: fss/fss
+
+let bibs = [
+  (`Ishii:2022gh`,
+    WildCard({
+      Hiromi Ishii, \code(`Algebra.Ring.LinearRecurrentSequence`); module, 2022. URL: \code(`https://github.com/konn/computational-algebra/blob/6e87b1eb9/halg-partial-fraction/src/Algebra/Ring/LinearRecurrentSequence.hs`);.})
+  );
+  (`Ishii:2022agda`,
+    WildCard({
+      Hiromi Ishii, \code(`laurent`);, 2022.
+      URL: \code(`https://github.com/konn/laurent`);.
+    })
+  );
+  (`Basold:2019`,
+    Article(|
+      author =
+        [ `Henning Basold`; `Helle Hvid Hansen`
+        ; `Jean-Eric Pin`; `Jan Rutten`
+        ];
+      title = `Newton Series, Coinductively: A COmparative Study of Composition`;
+      journal = `Mathematical Structures in Computer Science`;
+      year = `2019`;
+      volume = None;
+      number = None;
+      pages = (`1`, `29`);
+      month = None;
+      key = None;
+      note = Some(`doi:10.1017/S0960129517000159`)
+    |)
+  );
+  (`Gathen:2013`, 
+    Book(|
+      author = [`Joachim von zur Gathen`; `Jürgen Gerhard`];
+      title = `Modern Computer Algebra`;
+      edition = Some `Third Edition`;
+      publisher = `Cambridge University Press`;
+      year = `2013`;
+      volume = None;
+      series = None;
+      note = Some(`ISBN: 978-1-107-03903-2`);
+      address = None;
+      key = None;
+      month = None;
+    |)
+  );
+  (`Yuki:2007`, 
+    Book(|
+      author = [`結城浩`];
+      title = `数学ガール`;
+      publisher = `SBクリエイティブ`;
+      year = `2007`;
+      volume = Some(`1`);
+      series = None;
+      note = Some(`ISBN: 9784797341379`);
+      address = None;
+      edition = None;
+      key = None;
+      month = Some(`June`);
+    |)
+  );
+  (`Nagasaka-etal:2019`, 
+    Book(|
+      author = [`長坂 耕作`; `岩根 秀直`; `北本 卓也`; `讃岐 勝`; `照井 章`; `鍋島 克輔`];
+      title = `計算機代数の基礎理論`;
+      publisher = `共立出版`;
+      year = `2019`;
+      note = Some `ISBN: 978-4-320-11373-2`;
+      month = Some `3`;
+      address = None;
+      edition = None;
+      series = None;
+      volume = None;
+      key = None;
+    |)
+  )
+]
